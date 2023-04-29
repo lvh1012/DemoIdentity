@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +18,40 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = true)
     .AddEntityFrameworkStores<ApplicationDbContext>();
+
+#region identitysrever4
+// add identitysrever4
+var migrationsAssembly = typeof(Program).GetTypeInfo().Assembly.GetName().Name;
+builder.Services.AddIdentityServer(options =>
+{
+    options.Events.RaiseErrorEvents = true;
+    options.Events.RaiseInformationEvents = true;
+    options.Events.RaiseFailureEvents = true;
+    options.Events.RaiseSuccessEvents = true;
+
+    // see https://identityserver4.readthedocs.io/en/latest/topics/resources.html
+    options.EmitStaticAudienceClaim = true;
+})
+    .AddConfigurationStore(options =>
+    {
+        options.ConfigureDbContext = b => b.UseSqlServer(connectionString,
+            sql => sql.MigrationsAssembly(migrationsAssembly));
+    })
+    .AddOperationalStore(options =>
+    {
+        options.ConfigureDbContext = b => b.UseSqlServer(connectionString,
+            sql => sql.MigrationsAssembly(migrationsAssembly));
+    }).AddAspNetIdentity<IdentityUser>();
+
+/* migrations identity server
+ * dotnet ef migrations add InitialIdentityServerPersistedGrantDbMigration -c PersistedGrantDbContext -o Data/Migrations/IdentityServer/PersistedGrantDb
+ * dotnet ef migrations add InitialIdentityServerConfigurationDbMigration -c ConfigurationDbContext -o Data/Migrations/IdentityServer/ConfigurationDb
+ *
+ *  dotnet ef database update --context PersistedGrantDbContext
+ *  dotnet ef database update --context ConfigurationDbContext
+ */
+#endregion
+
 
 builder.Services.AddTransient<IEmailSender, EmailSender>();
 
@@ -31,6 +66,7 @@ builder.Services.AddTransient<IEmailSender, EmailSender>();
 builder.Services.Configure<SecurityStampValidatorOptions>(o =>
                    o.ValidationInterval = TimeSpan.FromMinutes(1));
 
+#region Authentication Scheme
 /* Authentication Scheme là 1 cái authentication handlers
  * có 1 số loại như cookie, jwt
  *
@@ -73,6 +109,8 @@ builder.Services.AddAuthentication()
         RoleClaimType = "roles"
     };
 });
+#endregion
+
 builder.Services.AddControllersWithViews();
 
 #region config identity
@@ -149,7 +187,7 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
-app.UseAuthentication();
+app.UseIdentityServer();
 app.UseAuthorization();
 
 app.MapControllerRoute(
