@@ -1,7 +1,10 @@
 ﻿using DemoIdentity.Data;
+using DemoIdentity.Policies;
+using DemoIdentity.Policies.Requirements;
 using DemoIdentity.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +23,7 @@ builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.Requ
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
 #region identitysrever4
+
 // add identitysrever4
 var migrationsAssembly = typeof(Program).GetTypeInfo().Assembly.GetName().Name;
 builder.Services.AddIdentityServer(options =>
@@ -50,8 +54,8 @@ builder.Services.AddIdentityServer(options =>
  *  dotnet ef database update --context PersistedGrantDbContext
  *  dotnet ef database update --context ConfigurationDbContext
  */
-#endregion
 
+#endregion identitysrever4
 
 builder.Services.AddTransient<IEmailSender, EmailSender>();
 
@@ -67,6 +71,7 @@ builder.Services.Configure<SecurityStampValidatorOptions>(o =>
                    o.ValidationInterval = TimeSpan.FromMinutes(1));
 
 #region Authentication Scheme
+
 /* Authentication Scheme là 1 cái authentication handlers
  * có 1 số loại như cookie, jwt
  *
@@ -109,7 +114,20 @@ builder.Services.AddAuthentication()
         RoleClaimType = "roles"
     };
 });
-#endregion
+
+#endregion Authentication Scheme
+
+#region authorization
+
+// yêu cầu tất cả user được xác thực
+//builder.Services.AddAuthorization(options =>
+//{
+//    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+//        .RequireAuthenticatedUser()
+//        .Build();
+//});
+
+#endregion authorization
 
 builder.Services.AddControllersWithViews();
 
@@ -165,6 +183,30 @@ builder.Services.Configure<PasswordHasherOptions>(option =>
     // làm chậm brushforce
     option.IterationCount = 12000;
 });
+
+#region policy role check
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("1In3", policy =>
+          policy.RequireRole("Administrator", "PowerUser", "BackupAdministrator"));
+});
+
+#endregion policy role check
+
+#region policy check
+
+// register handler
+builder.Services.AddSingleton<IAuthorizationHandler, MinimumAgeHandler>();
+builder.Services.AddSingleton<IAuthorizationHandler, PermissionHandler>();
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AtLeast21", policy =>
+        policy.Requirements.Add(new MinimumAgeRequirement(21)));
+});
+
+#endregion policy check
 
 #endregion config identity
 
